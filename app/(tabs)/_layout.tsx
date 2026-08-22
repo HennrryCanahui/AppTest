@@ -60,6 +60,16 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="nasa"
+        options={{
+          title: 'NASA',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'planet' : 'planet-outline'} size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
