@@ -5,19 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Task extends Model
+class Category extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'category_id',
-        'title',
-        'completed',
-    ];
-
-    protected $casts = [
-        'completed' => 'boolean',
+        'name',
+        'color',
     ];
 
     public function user()
@@ -25,8 +20,8 @@ class Task extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function category()
+    public function tasks()
     {
-        return $this->belongsTo(Category::class);
+        return $this->hasMany(Task::class);
     }
 }

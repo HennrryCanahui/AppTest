@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\TaskController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductoController;
 
@@ -20,8 +21,9 @@ Route::middleware('auth:api')->group(function () {
         return $request->user();
     });
 
-    // CRUD routes for Tasks
+    // CRUD routes for Tasks and Categories
     Route::apiResource('tasks', TaskController::class);
+    Route::apiResource('categories', CategoryController::class);
 
     // Rutas protegidas por scopes para Productos
     Route::get('/productos', [ProductoController::class, 'index'])

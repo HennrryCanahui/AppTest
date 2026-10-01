@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreTaskRequest extends FormRequest
+class UpdateCategoryRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,9 +14,8 @@ class StoreTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => 'required|string|max:255',
-            'category_id' => 'nullable|exists:categories,id',
-            'completed' => 'nullable|boolean',
+            'name' => 'sometimes|required|string|max:255',
+            'color' => 'sometimes|required|string|max:7',
         ];
     }
 }

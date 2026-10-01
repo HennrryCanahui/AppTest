@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStoredApiKey } from './services/authService';
+import { Platform } from 'react-native';
 
 export interface Category {
   id: string;
@@ -11,148 +13,130 @@ export interface Task {
   title: string;
   categoryId: string | null;
   completed: boolean;
+  category_name?: string | null;
+  category_color?: string | null;
 }
 
-const TASKS_KEY = '@tasks_data';
-const CATEGORIES_KEY = '@categories_data';
+// URL base inteligente: usa 10.0.2.2 para el emulador de Android, o localhost
+const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'General', color: '#64748b' },
-  { id: '2', name: 'Trabajo', color: '#3b82f6' },
-  { id: '3', name: 'Personal', color: '#ec4899' },
-  { id: '4', name: 'Estudios', color: '#10b981' }
-];
+const getHeaders = async () => {
+  // Se obtiene el token de Passport (reutilizamos getStoredApiKey por compatibilidad con el entorno actual)
+  const token = await getStoredApiKey() || await AsyncStorage.getItem('@passport_token');
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+};
 
 // ==========================================
-// 1. CRUD DE CATEGORÍAS
+// 1. CRUD DE CATEGORÍAS (Backend Laravel)
 // ==========================================
 
-// Obtener todas las categorías (inicializando semilla si no existen)
 export const getCategories = async (): Promise<Category[]> => {
   try {
-    const jsonValue = await AsyncStorage.getItem(CATEGORIES_KEY);
-    if (jsonValue != null) {
-      return JSON.parse(jsonValue);
-    } else {
-      // Guardar categorías por defecto al primer uso
-      await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(DEFAULT_CATEGORIES));
-      return DEFAULT_CATEGORIES;
-    }
+    const res = await fetch(`${API_URL}/categories`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Network error');
+    return await res.json();
   } catch (e) {
-    console.error('Error al leer categorías:', e);
-    return DEFAULT_CATEGORIES;
-  }
-};
-
-// Agregar nueva categoría
-export const addCategory = async (name: string, color: string): Promise<Category> => {
-  const currentCats = await getCategories();
-  const exists = currentCats.some(c => c.name.toLowerCase() === name.trim().toLowerCase());
-  if (exists) {
-    throw new Error('UNIQUE constraint failed: Ya existe una categoría con este nombre');
-  }
-  const newCat: Category = {
-    id: Date.now().toString(),
-    name: name.trim(),
-    color
-  };
-  const updatedCats = [...currentCats, newCat];
-  await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCats));
-  return newCat;
-};
-
-// Editar categoría
-export const updateCategory = async (id: string, name: string, color: string): Promise<void> => {
-  const currentCats = await getCategories();
-  const exists = currentCats.some(c => c.id !== id && c.name.toLowerCase() === name.trim().toLowerCase());
-  if (exists) {
-    throw new Error('UNIQUE constraint failed: Ya existe una categoría con este nombre');
-  }
-  const updatedCats = currentCats.map(c => 
-    c.id === id ? { ...c, name: name.trim(), color } : c
-  );
-  await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCats));
-};
-
-// Eliminar categoría
-export const deleteCategory = async (id: string): Promise<void> => {
-  const currentCats = await getCategories();
-  const updatedCats = currentCats.filter(c => c.id !== id);
-  await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCats));
-
-  // Cascading: las tareas de la categoría eliminada pasan a tener categoryId null
-  const currentTasks = await getTasks();
-  const updatedTasks = currentTasks.map(t => 
-    t.categoryId === id ? { ...t, categoryId: null } : t
-  );
-  await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-};
-
-// ==========================================
-// 2. CRUD DE TAREAS
-// ==========================================
-
-// Obtener todas las tareas
-export const getTasks = async (): Promise<Task[]> => {
-  try {
-    const jsonValue = await AsyncStorage.getItem(TASKS_KEY);
-    return jsonValue != null ? JSON.parse(jsonValue) : [];
-  } catch (e) {
-    console.error('Error al leer tareas:', e);
+    console.error('Error al leer categorías del servidor:', e);
     return [];
   }
 };
 
-// Guardar nueva tarea
-export const addTask = async (title: string, categoryId: string | null): Promise<void> => {
-  try {
-    const currentTasks = await getTasks();
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title,
-      categoryId,
-      completed: false,
-    };
-    const updatedTasks = [newTask, ...currentTasks];
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-  } catch (e) {
-    console.error('Error al guardar tarea:', e);
+export const addCategory = async (name: string, color: string): Promise<Category> => {
+  const res = await fetch(`${API_URL}/categories`, {
+    method: 'POST',
+    headers: await getHeaders(),
+    body: JSON.stringify({ name: name.trim(), color }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error agregando categoría');
+  }
+  return await res.json();
+};
+
+export const updateCategory = async (id: string, name: string, color: string): Promise<void> => {
+  const res = await fetch(`${API_URL}/categories/${id}`, {
+    method: 'PUT',
+    headers: await getHeaders(),
+    body: JSON.stringify({ name: name.trim(), color }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error editando categoría');
   }
 };
 
-// Cambiar estado completado/pendiente
+export const deleteCategory = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_URL}/categories/${id}`, {
+    method: 'DELETE',
+    headers: await getHeaders(),
+  });
+  if (!res.ok) throw new Error('Error al eliminar categoría');
+};
+
+// ==========================================
+// 2. CRUD DE TAREAS (Backend Laravel)
+// ==========================================
+
+export const getTasks = async (): Promise<Task[]> => {
+  try {
+    const res = await fetch(`${API_URL}/tasks`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Network error');
+    return await res.json();
+  } catch (e) {
+    console.error('Error al leer tareas del servidor:', e);
+    return [];
+  }
+};
+
+export const addTask = async (title: string, categoryId: string | null): Promise<void> => {
+  const res = await fetch(`${API_URL}/tasks`, {
+    method: 'POST',
+    headers: await getHeaders(),
+    body: JSON.stringify({ title: title.trim(), category_id: categoryId }),
+  });
+  if (!res.ok) throw new Error('Error agregando tarea');
+};
+
 export const toggleTaskCompleted = async (id: string): Promise<void> => {
   try {
-    const currentTasks = await getTasks();
-    const updatedTasks = currentTasks.map((task) =>
-      task.id === id ? { ...task, completed: !task.completed } : task
-    );
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
+    // 1. Obtener estado actual
+    const getRes = await fetch(`${API_URL}/tasks/${id}`, { headers: await getHeaders() });
+    if (!getRes.ok) return;
+    const task = await getRes.json();
+    
+    // 2. Enviar actualización
+    await fetch(`${API_URL}/tasks/${id}`, {
+      method: 'PUT',
+      headers: await getHeaders(),
+      body: JSON.stringify({ completed: !task.completed }),
+    });
   } catch (e) {
-    console.error('Error al actualizar tarea:', e);
+    console.error('Error al marcar tarea como completada:', e);
   }
 };
 
-// Editar tarea (título y categoría)
 export const updateTask = async (id: string, title: string, categoryId: string | null): Promise<void> => {
-  try {
-    const currentTasks = await getTasks();
-    const updatedTasks = currentTasks.map((task) =>
-      task.id === id ? { ...task, title: title.trim(), categoryId } : task
-    );
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-  } catch (e) {
-    console.error('Error al editar tarea:', e);
-  }
+  const res = await fetch(`${API_URL}/tasks/${id}`, {
+    method: 'PUT',
+    headers: await getHeaders(),
+    body: JSON.stringify({ title: title.trim(), category_id: categoryId }),
+  });
+  if (!res.ok) throw new Error('Error al editar tarea');
 };
 
-// Eliminar tarea
 export const deleteTask = async (id: string): Promise<void> => {
-  try {
-    const currentTasks = await getTasks();
-    const updatedTasks = currentTasks.filter((task) => task.id !== id);
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(updatedTasks));
-  } catch (e) {
-    console.error('Error al eliminar tarea:', e);
-  }
+  const res = await fetch(`${API_URL}/tasks/${id}`, {
+    method: 'DELETE',
+    headers: await getHeaders(),
+  });
+  if (!res.ok) throw new Error('Error al eliminar tarea');
 };
