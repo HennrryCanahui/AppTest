@@ -12,6 +12,7 @@ import {
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { fetchNasaApod, ApodItem } from '../../../services/nasaApi';
+import { logout } from '../../../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function NasaListScreen() {
@@ -30,7 +31,12 @@ export default function NasaListScreen() {
       const data = await fetchNasaApod(10);
       setItems(data);
     } catch (err: any) {
-      setError(err?.message || 'Ocurrió un error al cargar las imágenes.');
+      const errorMsg = err?.message || 'Ocurrió un error al cargar las imágenes.';
+      if (errorMsg === 'UNAUTHORIZED') {
+        router.replace('/login');
+        return;
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -110,8 +116,19 @@ export default function NasaListScreen() {
     );
   }
 
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>NASA APOD</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={items}
         keyExtractor={(item) => item.date + '-' + item.title}
@@ -141,6 +158,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc'
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0'
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a'
+  },
+  logoutButton: {
+    padding: 4
   },
   listContent: {
     padding: 16
