@@ -17,6 +17,12 @@ export interface Task {
   category_color?: string | null;
 }
 
+export interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+}
+
 const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
 
 const getHeaders = async () => {
@@ -38,6 +44,18 @@ const handleApiResponse = async (res: Response, fallbackMessage: string) => {
     const errorData = await res.json().catch(() => ({}));
     console.error(`[API Error ${res.status}]`, errorData);
     throw new Error(errorData.message || `${fallbackMessage} (HTTP ${res.status})`);
+  }
+};
+
+export const getUserProfile = async (): Promise<UserProfile | null> => {
+  try {
+    const res = await fetch(`${API_URL}/me`, { headers: await getHeaders() });
+    await handleApiResponse(res, 'Error al obtener perfil');
+    const data = await res.json();
+    return data.user;
+  } catch (e) {
+    console.error(e);
+    return null;
   }
 };
 

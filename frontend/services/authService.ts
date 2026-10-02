@@ -2,7 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const TOKEN_KEY = '@passport_token';
+const NASA_API_KEY = 'w7gGyWv5cKR2L0Cy2F2ja3TN5nYhbqdUAu1QdVym';
 const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
+
+export const saveStoredApiKey = async (apiKey: string): Promise<void> => {
+  await AsyncStorage.setItem(NASA_API_KEY, apiKey);
+};
+
+export const getStoredApiKey = async (): Promise<string> => {
+  const key = await AsyncStorage.getItem(NASA_API_KEY);
+  return key || 'DEMO_KEY';
+};
 
 export const saveToken = async (token: string): Promise<void> => {
   await AsyncStorage.setItem(TOKEN_KEY, token);

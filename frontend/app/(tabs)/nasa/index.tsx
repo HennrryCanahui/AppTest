@@ -7,12 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { fetchNasaApod, ApodItem } from '../../../services/nasaApi';
-import { logout } from '../../../services/authService';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function NasaListScreen() {
@@ -32,10 +30,6 @@ export default function NasaListScreen() {
       setItems(data);
     } catch (err: any) {
       const errorMsg = err?.message || 'Ocurrió un error al cargar las imágenes.';
-      if (errorMsg === 'UNAUTHORIZED') {
-        router.replace('/login');
-        return;
-      }
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -116,19 +110,8 @@ export default function NasaListScreen() {
     );
   }
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
-  };
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>NASA APOD</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
       <FlatList
         data={items}
         keyExtractor={(item) => item.date + '-' + item.title}

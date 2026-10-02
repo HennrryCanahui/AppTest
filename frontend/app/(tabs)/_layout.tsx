@@ -13,7 +13,6 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: '#94a3b8',
         tabBarStyle: {
           backgroundColor: '#ffffff',
-          // Con edgeToEdge, insets.bottom tendrá la altura exacta de la barra de botones (~24px - 48px)
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 6,
@@ -41,6 +40,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          headerTitle: 'Mi Perfil',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="categorias"
         options={{
           title: 'Categorías',
@@ -64,9 +73,9 @@ export default function TabsLayout() {
         name="nasa"
         options={{
           title: 'NASA',
-          headerShown: false,
+          headerTitle: 'Exploración NASA',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'planet' : 'planet-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'globe' : 'globe-outline'} size={24} color={color} />
           ),
         }}
       />

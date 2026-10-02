@@ -18,7 +18,7 @@ export default function NasaStackLayout() {
       <Stack.Screen
         name="index"
         options={{
-          headerTitle: 'Exploración NASA',
+          headerShown: false, // Ni la IA puede quitarlo jajajaja
         }}
       />
       <Stack.Screen
