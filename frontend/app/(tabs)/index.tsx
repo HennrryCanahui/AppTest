@@ -12,6 +12,7 @@ import {
   Platform,
   ScrollView
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useFocusEffect } from 'expo-router';
 import {
   Task as StorageTask,
@@ -37,12 +38,16 @@ export default function TasksScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string | null>(null); // null = Todas
-  
+
   // Estados para Edición
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
+
+  // Estados para Eliminación
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
 
   // Carga las tareas aplicando filtros si corresponde
   const loadTasks = async () => {
@@ -61,7 +66,9 @@ export default function TasksScreen() {
       });
 
       // Filtrar tareas por categoría
-      if (selectedFilterCategory !== null) {
+      if (selectedFilterCategory === 'none') {
+        mappedTasks = mappedTasks.filter((t) => t.categoryId === null);
+      } else if (selectedFilterCategory !== null) {
         mappedTasks = mappedTasks.filter((t) => t.categoryId === selectedFilterCategory);
       }
 
@@ -89,45 +96,33 @@ export default function TasksScreen() {
     }, [selectedFilterCategory])
   );
 
-  // Cambiar estado completado (true o false)
   const toggleComplete = async (id: string) => {
     try {
       await toggleTaskCompleted(id);
       loadTasks();
+      Toast.show({ type: 'info', text1: 'Estado de la tarea actualizado' });
     } catch (error) {
       console.error('Error al cambiar estado de la tarea:', error);
+      Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
     }
   };
 
   // Confirmar y eliminar tarea
   const handleDeleteTask = (id: string, title: string) => {
-    const performDelete = async () => {
-      try {
-        await deleteTask(id);
-        loadTasks();
-      } catch (error) {
-        console.error('Error al eliminar tarea:', error);
-      }
-    };
+    setTaskToDelete({ id, title });
+    setDeleteModalVisible(true);
+  };
 
-    if (Platform.OS === 'web') {
-      const confirmDelete = window.confirm(`¿Deseas eliminar la tarea "${title}"?`);
-      if (confirmDelete) {
-        performDelete();
-      }
-    } else {
-      Alert.alert(
-        'Eliminar Tarea',
-        `¿Deseas eliminar la tarea "${title}"?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Eliminar',
-            style: 'destructive',
-            onPress: performDelete
-          }
-        ]
-      );
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    try {
+      await deleteTask(taskToDelete.id);
+      loadTasks();
+      Toast.show({ type: 'deleteSuccess', text1: 'Tarea eliminada' });
+      setDeleteModalVisible(false);
+    } catch (error) {
+      console.error('Error al eliminar tarea:', error);
+      Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
     }
   };
 
@@ -142,7 +137,7 @@ export default function TasksScreen() {
   // Guardar Cambios de Edición
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) {
-      Alert.alert('Error', 'El nombre de la tarea no puede estar vacío.');
+      Toast.show({ type: 'error', text1: 'El nombre de la tarea no puede estar vacío.' });
       return;
     }
 
@@ -152,8 +147,9 @@ export default function TasksScreen() {
       await updateTask(taskToEdit.id, editTitle.trim(), editCategoryId);
       setEditModalVisible(false);
       loadTasks();
+      Toast.show({ type: 'success', text1: 'Tarea modificada correctamente' });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar la tarea.');
+      Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
       console.error(error);
     }
   };
@@ -181,6 +177,23 @@ export default function TasksScreen() {
               ]}
             >
               Todas
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterItem,
+              selectedFilterCategory === 'none' && styles.filterItemActive
+            ]}
+            onPress={() => setSelectedFilterCategory('none')}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                selectedFilterCategory === 'none' && styles.filterTextActive
+              ]}
+            >
+              Sin Categoría
             </Text>
           </TouchableOpacity>
 
@@ -238,7 +251,7 @@ export default function TasksScreen() {
                   <Text style={[styles.title, isCompleted && styles.done]}>
                     {item.title}
                   </Text>
-                  
+
                   {/* Badge de Categoría */}
                   <View style={[styles.badge, { backgroundColor: categoryColor + '15' }]}>
                     <View style={[styles.badgeDot, { backgroundColor: categoryColor }]} />
@@ -350,6 +363,42 @@ export default function TasksScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal de Confirmación de Eliminación */}
+      <Modal
+        visible={deleteModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.modalContentCenter}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Eliminar Tarea</Text>
+            </View>
+
+            <Text style={styles.deletePrompt}>
+              ¿Estás seguro de que deseas eliminar la tarea <Text style={{ fontWeight: 'bold' }}>"{taskToDelete?.title}"</Text>? Esta acción no se puede deshacer.
+            </Text>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnCancel]}
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.btnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, { backgroundColor: '#ef4444', flexDirection: 'row' }]}
+                onPress={confirmDeleteTask}
+              >
+                <Ionicons name="checkmark" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={styles.btnSaveText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -496,6 +545,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5
+  },
+  modalOverlayCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    paddingHorizontal: 20
+  },
+  modalContentCenter: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5
+  },
+  deletePrompt: {
+    fontSize: 15,
+    color: '#475569',
+    marginBottom: 24,
+    lineHeight: 22
   },
   modalHeader: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import {
     Platform,
     ScrollView
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useFocusEffect } from 'expo-router';
 import {
     Category,
@@ -39,6 +40,10 @@ export default function CategoriesScreen() {
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [name, setName] = useState('');
     const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+
+    // Estados para Eliminación
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
     // Cargar categorías
     const loadCategories = async () => {
@@ -72,10 +77,9 @@ export default function CategoriesScreen() {
         setModalVisible(true);
     };
 
-    // Guardar categoría (crear o editar)
     const handleSave = async () => {
         if (!name.trim()) {
-            Alert.alert('Error', 'El nombre de la categoría no puede estar vacío.');
+            Toast.show({ type: 'error', text1: 'El nombre de la categoría no puede estar vacío.' });
             return;
         }
 
@@ -83,17 +87,19 @@ export default function CategoriesScreen() {
             if (editingCategory) {
                 // Editar
                 await updateCategory(editingCategory.id, name.trim(), selectedColor);
+                Toast.show({ type: 'success', text1: 'Categoría actualizada' });
             } else {
                 // Crear
                 await addCategory(name.trim(), selectedColor);
+                Toast.show({ type: 'success', text1: 'Categoría creada con éxito' });
             }
             setModalVisible(false);
             loadCategories();
         } catch (error: any) {
             if (error.message && error.message.includes('UNIQUE constraint failed')) {
-                Alert.alert('Error', 'Ya existe una categoría con este nombre.');
+                Toast.show({ type: 'error', text1: 'Ya existe una categoría con este nombre.' });
             } else {
-                Alert.alert('Error', 'No se pudo guardar la categoría.');
+                Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
                 console.error(error);
             }
         }
@@ -102,38 +108,23 @@ export default function CategoriesScreen() {
     // Confirmar y eliminar categoría
     const handleDelete = (category: Category) => {
         if (category.name === 'General') {
-            Alert.alert('Acción no permitida', 'La categoría "General" es del sistema y no puede eliminarse.');
+            Toast.show({ type: 'error', text1: 'La categoría "General" no puede eliminarse.' });
             return;
         }
+        setCategoryToDelete(category);
+        setDeleteModalVisible(true);
+    };
 
-        const performDelete = async () => {
-            try {
-                await deleteCategory(category.id);
-                loadCategories();
-            } catch (error) {
-                Alert.alert('Error', 'No se pudo eliminar la categoría.');
-                console.error(error);
-            }
-        };
-
-        if (Platform.OS === 'web') {
-            const confirmDelete = window.confirm(`¿Estás seguro de que deseas eliminar la categoría "${category.name}"? Las tareas asociadas quedarán sin categoría asignada.`);
-            if (confirmDelete) {
-                performDelete();
-            }
-        } else {
-            Alert.alert(
-                'Eliminar Categoría',
-                `¿Estás seguro de que deseas eliminar la categoría "${category.name}"? Las tareas asociadas quedarán sin categoría asignada.`,
-                [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                        text: 'Eliminar',
-                        style: 'destructive',
-                        onPress: performDelete
-                    }
-                ]
-            );
+    const confirmDeleteCategory = async () => {
+        if (!categoryToDelete) return;
+        try {
+            await deleteCategory(categoryToDelete.id);
+            loadCategories();
+            Toast.show({ type: 'deleteSuccess', text1: 'Categoría eliminada' });
+            setDeleteModalVisible(false);
+        } catch (error) {
+            Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
+            console.error(error);
         }
     };
 
@@ -251,6 +242,45 @@ export default function CategoriesScreen() {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
+
+            {/* Modal de Confirmación de Eliminación */}
+            <Modal
+                visible={deleteModalVisible}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setDeleteModalVisible(false)}
+            >
+                <View style={styles.modalOverlayCenter}>
+                    <View style={styles.modalContentCenter}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Eliminar Categoría</Text>
+                            <TouchableOpacity onPress={() => setDeleteModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#64748b" />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={styles.deletePrompt}>
+                            ¿Estás seguro de que deseas eliminar la categoría <Text style={{fontWeight: 'bold'}}>"{categoryToDelete?.name}"</Text>? Las tareas asociadas quedarán sin categoría asignada.
+                        </Text>
+                        
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity
+                                style={[styles.btn, styles.btnCancel]}
+                                onPress={() => setDeleteModalVisible(false)}
+                            >
+                                <Text style={styles.btnCancelText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.btn, { backgroundColor: '#ef4444', flexDirection: 'row' }]}
+                                onPress={confirmDeleteCategory}
+                            >
+                                <Ionicons name="checkmark" size={18} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.btnSaveText}>Eliminar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -357,6 +387,28 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 5
+    },
+    modalOverlayCenter: {
+        flex: 1,
+        justifyContent: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        paddingHorizontal: 20
+    },
+    modalContentCenter: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5
+    },
+    deletePrompt: {
+        fontSize: 15,
+        color: '#475569',
+        marginBottom: 24,
+        lineHeight: 22
     },
     modalHeader: {
         flexDirection: 'row',

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Category,
@@ -20,11 +21,6 @@ export default function AddTaskScreen() {
     try {
       const allCategories = await getCategories();
       setCategories(allCategories);
-      if (allCategories.length > 0 && selectedCategoryId === null) {
-        // Selecciona la primera categoría por defecto (usualmente 'General')
-        const generalCat = allCategories.find(c => c.name === 'General') || allCategories[0];
-        setSelectedCategoryId(generalCat.id);
-      }
     } catch (error) {
       console.error('Error cargando categorías para agregar tarea:', error);
     }
@@ -38,7 +34,7 @@ export default function AddTaskScreen() {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Falta información', 'Por favor, escribe el nombre de la tarea.');
+      Toast.show({ type: 'error', text1: 'Por favor, escribe el nombre de la tarea.' });
       return;
     }
 
@@ -47,10 +43,11 @@ export default function AddTaskScreen() {
       await addTask(title.trim(), selectedCategoryId);
 
       setTitle('');
+      Toast.show({ type: 'success', text1: 'Tarea creada con éxito' });
       // Redirigir a la pestaña de listado
       router.push('/');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar la tarea.');
+      Toast.show({ type: 'error', text1: 'No se pudo completar la acción. Inténtalo de nuevo' });
       console.error(error);
     }
   };
@@ -74,6 +71,19 @@ export default function AddTaskScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categorySelector}
           >
+            <TouchableOpacity
+              style={[
+                styles.categoryItem,
+                selectedCategoryId === null && { backgroundColor: '#e2e8f0', borderColor: '#94a3b8' }
+              ]}
+              onPress={() => setSelectedCategoryId(null)}
+            >
+              <Ionicons name="remove-circle-outline" size={16} color={selectedCategoryId === null ? '#0f172a' : '#64748B'} style={{ marginRight: 6 }} />
+              <Text style={[styles.categoryText, selectedCategoryId === null && { color: '#0f172a' }]}>
+                Ninguna
+              </Text>
+            </TouchableOpacity>
+
             {categories.map((category) => {
               const isSelected = selectedCategoryId === category.id;
               return (
