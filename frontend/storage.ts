@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getStoredApiKey } from './services/authService';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
+import { getToken, logout } from './services/authService';
 
 export interface Category {
   id: string;
@@ -17,17 +17,28 @@ export interface Task {
   category_color?: string | null;
 }
 
-// URL base inteligente: usa 10.0.2.2 para el emulador de Android, o localhost
 const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
 
 const getHeaders = async () => {
-  // Se obtiene el token de Passport (reutilizamos getStoredApiKey por compatibilidad con el entorno actual)
-  const token = await getStoredApiKey() || await AsyncStorage.getItem('@passport_token');
+  const token = await getToken();
   return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     'Authorization': `Bearer ${token}`,
   };
+};
+
+const handleApiResponse = async (res: Response, fallbackMessage: string) => {
+  if (res.status === 401) {
+    await logout();
+    router.replace('/login');
+    throw new Error('No autorizado. Sesión expirada.');
+  }
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    console.error(`[API Error ${res.status}]`, errorData);
+    throw new Error(errorData.message || `${fallbackMessage} (HTTP ${res.status})`);
+  }
 };
 
 // ==========================================
@@ -39,7 +50,7 @@ export const getCategories = async (): Promise<Category[]> => {
     const res = await fetch(`${API_URL}/categories`, {
       headers: await getHeaders(),
     });
-    if (!res.ok) throw new Error('Network error');
+    await handleApiResponse(res, 'Error al obtener categorías');
     return await res.json();
   } catch (e) {
     console.error('Error al leer categorías del servidor:', e);
@@ -53,10 +64,7 @@ export const addCategory = async (name: string, color: string): Promise<Category
     headers: await getHeaders(),
     body: JSON.stringify({ name: name.trim(), color }),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error agregando categoría');
-  }
+  await handleApiResponse(res, 'Error agregando categoría');
   return await res.json();
 };
 
@@ -66,10 +74,7 @@ export const updateCategory = async (id: string, name: string, color: string): P
     headers: await getHeaders(),
     body: JSON.stringify({ name: name.trim(), color }),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error editando categoría');
-  }
+  await handleApiResponse(res, 'Error editando categoría');
 };
 
 export const deleteCategory = async (id: string): Promise<void> => {
@@ -77,7 +82,7 @@ export const deleteCategory = async (id: string): Promise<void> => {
     method: 'DELETE',
     headers: await getHeaders(),
   });
-  if (!res.ok) throw new Error('Error al eliminar categoría');
+  await handleApiResponse(res, 'Error al eliminar categoría');
 };
 
 // ==========================================
@@ -89,7 +94,7 @@ export const getTasks = async (): Promise<Task[]> => {
     const res = await fetch(`${API_URL}/tasks`, {
       headers: await getHeaders(),
     });
-    if (!res.ok) throw new Error('Network error');
+    await handleApiResponse(res, 'Error al obtener tareas');
     return await res.json();
   } catch (e) {
     console.error('Error al leer tareas del servidor:', e);
@@ -103,22 +108,21 @@ export const addTask = async (title: string, categoryId: string | null): Promise
     headers: await getHeaders(),
     body: JSON.stringify({ title: title.trim(), category_id: categoryId }),
   });
-  if (!res.ok) throw new Error('Error agregando tarea');
+  await handleApiResponse(res, 'Error agregando tarea');
 };
 
 export const toggleTaskCompleted = async (id: string): Promise<void> => {
   try {
-    // 1. Obtener estado actual
     const getRes = await fetch(`${API_URL}/tasks/${id}`, { headers: await getHeaders() });
-    if (!getRes.ok) return;
+    await handleApiResponse(getRes, 'Error al consultar tarea');
     const task = await getRes.json();
-    
-    // 2. Enviar actualización
-    await fetch(`${API_URL}/tasks/${id}`, {
+
+    const putRes = await fetch(`${API_URL}/tasks/${id}`, {
       method: 'PUT',
       headers: await getHeaders(),
       body: JSON.stringify({ completed: !task.completed }),
     });
+    await handleApiResponse(putRes, 'Error al actualizar estado de la tarea');
   } catch (e) {
     console.error('Error al marcar tarea como completada:', e);
   }
@@ -130,7 +134,7 @@ export const updateTask = async (id: string, title: string, categoryId: string |
     headers: await getHeaders(),
     body: JSON.stringify({ title: title.trim(), category_id: categoryId }),
   });
-  if (!res.ok) throw new Error('Error al editar tarea');
+  await handleApiResponse(res, 'Error al editar tarea');
 };
 
 export const deleteTask = async (id: string): Promise<void> => {
@@ -138,5 +142,5 @@ export const deleteTask = async (id: string): Promise<void> => {
     method: 'DELETE',
     headers: await getHeaders(),
   });
-  if (!res.ok) throw new Error('Error al eliminar tarea');
+  await handleApiResponse(res, 'Error al eliminar tarea');
 };

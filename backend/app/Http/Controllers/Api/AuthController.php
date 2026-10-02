@@ -22,7 +22,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
         $user = User::create([
@@ -69,24 +69,6 @@ class AuthController extends Controller
         }
 
         try {
-            $response = Http::post(config('app.url').'/oauth/token', [
-                'grant_type'    => 'password',
-                'client_id'     => $clientId,
-                'client_secret' => $clientSecret,
-                'username'      => $request->email,
-                'password'      => $request->password,
-                'scope'         => implode(' ', (array) $scopes),
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $user = User::where('email', $request->email)->first();
-                if ($user) {
-                    $data['user'] = $user;
-                }
-                return response()->json($data, 200);
-            }
-        } catch (\Throwable $e) {
             $tokenRequest = Request::create('/oauth/token', 'POST', [
                 'grant_type'    => 'password',
                 'client_id'     => $clientId,
@@ -105,6 +87,8 @@ class AuthController extends Controller
                 }
                 return response()->json($data, 200);
             }
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Error de autenticación interna: ' . $e->getMessage()], 500);
         }
 
         return response()->json(['message' => 'Credenciales inválidas'], 401);
