@@ -254,15 +254,12 @@ export default function CategoriesScreen() {
                     <View style={styles.modalContentCenter}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Eliminar Categoría</Text>
-                            <TouchableOpacity onPress={() => setDeleteModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#64748b" />
-                            </TouchableOpacity>
                         </View>
-                        
+
                         <Text style={styles.deletePrompt}>
-                            ¿Estás seguro de que deseas eliminar la categoría <Text style={{fontWeight: 'bold'}}>"{categoryToDelete?.name}"</Text>? Las tareas asociadas quedarán sin categoría asignada.
+                            ¿Estás seguro de que deseas eliminar la categoría <Text style={{ fontWeight: 'bold' }}>"{categoryToDelete?.name}"</Text>? Las tareas asociadas quedarán sin categoría asignada.
                         </Text>
-                        
+
                         <View style={styles.modalFooter}>
                             <TouchableOpacity
                                 style={[styles.btn, styles.btnCancel]}
