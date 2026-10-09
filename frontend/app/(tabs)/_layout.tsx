@@ -79,6 +79,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="api-gastos"
+        options={{
+          href: '/gastos/login',
+          title: 'API Gastos',
+          headerTitle: 'Control de Gastos',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
